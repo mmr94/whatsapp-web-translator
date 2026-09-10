@@ -55,8 +55,10 @@ async function maybeTranslateResult(result: any, chatId: string): Promise<any> {
   const config = getConfig();
   if (!config.enabled) return;
 
-  const target = getChatLang(chatId) || config.nativeLang;
+  const source = getChatLang(chatId) || 'auto';
+  const target = config.nativeLang;
   if (!target) return;
+  if (source === target) return;
 
   const fields = collectTextFields(result);
   if (fields.length === 0) return;
@@ -70,11 +72,11 @@ async function maybeTranslateResult(result: any, chatId: string): Promise<any> {
       // Skip if we previously decorated this very text (idempotency on re-runs).
       if (original.includes(ORIGINAL_MARKER)) return;
 
-      const cacheKey = `${target}\0${original}`;
+      const cacheKey = `${source}\0${target}\0${original}`;
       let translated = cache.get(cacheKey);
       if (translated == null) {
         try {
-          const r = await translate({ text: original, source: 'auto', target });
+          const r = await translate({ text: original, source, target });
           translated = r.translated || '';
         } catch (err) {
           translated = '';

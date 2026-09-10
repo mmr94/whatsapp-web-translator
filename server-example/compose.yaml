@@ -6,17 +6,28 @@ services:
     environment:
       WTT_API_TOKEN: change-this-token
       WTT_DEVICE: cuda
-      WTT_COMPUTE_TYPE: float16
+      WTT_ASR_COMPUTE_TYPE: float16
       WTT_WHISPER_MODEL: large-v3
-      WTT_TRANSLATION_MODEL: facebook/nllb-200-distilled-600M
+      WTT_TRANSLATION_MODEL: facebook/nllb-200-3.3B
+      WTT_TRANSLATION_CT2_MODEL: /models/nllb-200-3.3B-ct2
+      WTT_TRANSLATION_CONVERSION_TYPE: float16
+      WTT_TRANSLATION_COMPUTE_TYPE: float16
       WTT_PRELOAD_MODELS: "1"
-      WTT_ASR_CONCURRENCY: "2"
-      WTT_ASR_QUEUE_SIZE: "16"
-      WTT_TRANSLATION_BATCH_SIZE: "16"
-      WTT_TRANSLATION_BATCH_WAIT_MS: "20"
-      WTT_TRANSLATION_QUEUE_SIZE: "128"
+      WTT_WARMUP_MODEL: "1"
+      WTT_ASR_CONCURRENCY: "1"
+      WTT_ASR_QUEUE_SIZE: "8"
+      WTT_ASR_BEAM_SIZE: "1"
+      WTT_TRANSLATION_WORKERS: "2"
+      WTT_TRANSLATION_BATCH_SIZE: "32"
+      WTT_TRANSLATION_BATCH_WAIT_MS: "8"
+      WTT_TRANSLATION_MAX_BATCH_TOKENS: "4096"
+      WTT_TRANSLATION_QUEUE_SIZE: "256"
+      WTT_QUEUE_TIMEOUT_SECONDS: "15"
+      WTT_TRANSLATION_BEAMS: "1"
+      WTT_TRANSLATION_CACHE_SIZE: "50000"
     volumes:
       - model-cache:/root/.cache/huggingface
+      - converted-models:/models
     deploy:
       resources:
         reservations:
@@ -27,3 +38,4 @@ services:
 
 volumes:
   model-cache:
+  converted-models:

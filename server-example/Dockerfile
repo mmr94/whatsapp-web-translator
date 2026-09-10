@@ -11,7 +11,7 @@ RUN apt-get update \
 WORKDIR /app
 COPY requirements.txt .
 RUN python3 -m pip install -r requirements.txt
-COPY app.py .
+COPY app.py prepare_model.py serve.py benchmark.py ./
 
 EXPOSE 8000
-CMD ["python3", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["python3", "serve.py"]

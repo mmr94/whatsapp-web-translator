@@ -2,8 +2,11 @@ node_modules
 dist
 .vite
 *.log
+__pycache__
+*.pyc
 .DS_Store
 .env
 .env.local
 mitm_mcp_traffic.db
 tsconfig.tsbuildinfo
+server-example/models

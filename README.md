@@ -115,15 +115,22 @@ Réponse :
 Un exemple FastAPI se trouve dans `server-example/`. Il charge :
 
 - `faster-whisper` avec `large-v3` en FP16 pour la transcription ;
-- `facebook/nllb-200-distilled-600M` pour la traduction.
+- `facebook/nllb-200-3.3B` pour la traduction français/anglais/hébreu ;
+- le runtime CTranslate2 en FP16 pour exploiter l'A40 avec micro-batching et
+  exécutions GPU parallèles.
 
 ```bash
 cd server-example
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-WTT_API_TOKEN=change-me uvicorn app:app --host 0.0.0.0 --port 8000
+WTT_API_TOKEN=change-me python serve.py
 ```
+
+Au premier démarrage, `serve.py` télécharge NLLB-200 3.3B puis le convertit au
+format CTranslate2. Le résultat est conservé dans `server-example/models/`. Avec
+Docker Compose, les poids Hugging Face et le modèle converti sont conservés dans
+deux volumes, donc les redémarrages suivants sont immédiats.
 
 Pour un test local sans jeton, omettre `WTT_API_TOKEN`. Pour un accès réseau, utiliser
 HTTPS derrière un proxy et définir obligatoirement un jeton long et aléatoire.
@@ -134,31 +141,70 @@ Variables utiles :
 | --- | --- | --- |
 | `WTT_API_TOKEN` | vide | Jeton Bearer requis par l'API |
 | `WTT_WHISPER_MODEL` | `large-v3` | Modèle faster-whisper |
-| `WTT_TRANSLATION_MODEL` | `facebook/nllb-200-distilled-600M` | Modèle NLLB |
+| `WTT_TRANSLATION_MODEL` | `facebook/nllb-200-3.3B` | Modèle NLLB source |
+| `WTT_TRANSLATION_CT2_MODEL` | `server-example/models/nllb-200-3.3B-ct2` | Modèle converti |
 | `WTT_DEVICE` | `cuda` | `cuda` ou `cpu` |
-| `WTT_COMPUTE_TYPE` | `float16` | Précision faster-whisper |
+| `WTT_ASR_COMPUTE_TYPE` | `float16` | Précision faster-whisper |
+| `WTT_TRANSLATION_COMPUTE_TYPE` | `float16` | Précision CTranslate2 à l'exécution |
+| `WTT_TRANSLATION_CONVERSION_TYPE` | `float16` | Quantification lors de la conversion |
 | `WTT_ALLOWED_ORIGINS` | `*` | Origines CORS séparées par des virgules |
 | `WTT_PRELOAD_MODELS` | `1` | Charge les deux modèles au démarrage |
-| `WTT_ASR_CONCURRENCY` | `2` | Transcriptions simultanées sur le GPU |
-| `WTT_ASR_QUEUE_SIZE` | `16` | Vocaux en attente avant réponse HTTP 429 |
-| `WTT_TRANSLATION_BATCH_SIZE` | `16` | Messages regroupés dans un batch NLLB |
-| `WTT_TRANSLATION_BATCH_WAIT_MS` | `20` | Fenêtre de micro-batching |
-| `WTT_TRANSLATION_QUEUE_SIZE` | `128` | Traductions en attente avant HTTP 429 |
-| `WTT_QUEUE_TIMEOUT_SECONDS` | `180` | Temps maximal passé dans une file |
-| `WTT_TRANSLATION_BEAMS` | `2` | Qualité/débit de génération NLLB |
+| `WTT_WARMUP_MODEL` | `1` | Exécute une traduction avant d'accepter le trafic |
+| `WTT_ASR_CONCURRENCY` | `1` | Transcriptions simultanées sur le GPU |
+| `WTT_ASR_QUEUE_SIZE` | `8` | Vocaux en attente avant réponse HTTP 429 |
+| `WTT_ASR_BEAM_SIZE` | `1` | Faisceau Whisper, 1 étant le plus rapide |
+| `WTT_TRANSLATION_WORKERS` | `2` | Flux CUDA CTranslate2 partageant les mêmes poids |
+| `WTT_TRANSLATION_BATCH_SIZE` | `32` | Requêtes regroupées par micro-batch |
+| `WTT_TRANSLATION_BATCH_WAIT_MS` | `8` | Attente maximale pour former un batch |
+| `WTT_TRANSLATION_MAX_BATCH_TOKENS` | `4096` | Budget de tokens par batch GPU |
+| `WTT_TRANSLATION_QUEUE_SIZE` | `256` | Traductions en attente avant HTTP 429 |
+| `WTT_QUEUE_TIMEOUT_SECONDS` | `15` | Temps maximal passé dans une file |
+| `WTT_TRANSLATION_BEAMS` | `1` | 1 pour le débit maximal, 2 pour tester plus de qualité |
+| `WTT_TRANSLATION_CACHE_SIZE` | `50000` | Traductions conservées en mémoire, 0 pour désactiver |
+| `WTT_TRANSLATION_CACHE_TTL_SECONDS` | `86400` | Durée du cache en secondes |
 
 ### Concurrence sur une A40
 
-Le serveur charge une seule copie de chaque modèle par processus. Le chargement est
-protégé contre les doubles initialisations concurrentes. Les traductions arrivant au
-même moment sont regroupées par paire de langues et traitées en micro-batches. Pour
-Whisper, `num_workers` et une file bornée permettent plusieurs transcriptions avec une
-limite explicite de mémoire.
+Le serveur charge une seule copie de chaque modèle par processus. CTranslate2 lance
+deux workers CUDA qui partagent les poids NLLB. Les requêtes arrivant dans une fenêtre
+de 8 ms sont regroupées par paire de langues, puis assemblées dans des batches dont la
+taille est calculée en tokens. Ce fonctionnement augmente fortement le débit lorsque
+plusieurs utilisateurs reçoivent des messages au même moment.
+
+Les requêtes identiques déjà en cours partagent le même calcul. Les traductions récentes
+sont également conservées dans un cache LRU en mémoire : les messages fréquents tels
+que « ok », « merci » ou « j'arrive » sont renvoyés sans nouveau passage GPU. Le cache
+n'est jamais écrit sur disque et peut être désactivé avec une taille de 0.
+
+L'extension transmet la langue configurée pour le chat comme langue source des messages
+reçus. Cela supprime presque tous les appels au détecteur statistique et améliore la
+fiabilité sur les très petits messages. Si un texte dépasse la fenêtre NLLB, il est
+découpé automatiquement près des fins de phrases au lieu d'être tronqué.
 
 Conserver **un seul worker Uvicorn** : plusieurs processus chargeraient plusieurs copies
-des modèles dans la VRAM. Pour davantage de débit, augmenter progressivement
-`WTT_ASR_CONCURRENCY` (2, puis 3 ou 4) en surveillant la VRAM et la latence. Les files
-bornées renvoient HTTP 429 lorsqu'elles sont pleines au lieu de saturer la machine.
+des modèles dans la VRAM. Augmenter plutôt `WTT_TRANSLATION_WORKERS` ou le budget de
+tokens du batch. Garder Whisper à une seule transcription simultanée au départ afin que
+les vocaux longs ne dégradent pas la latence des messages texte. Les files bornées
+renvoient HTTP 429 avec `Retry-After` au lieu de saturer la machine.
+
+Les routes `/health` et `/metrics` exposent la profondeur des files, le nombre de batches,
+les succès, les rejets, les cache hits et le temps GPU cumulé. Elles sont protégées par
+le même Bearer token.
+
+### Mesurer et régler le débit
+
+Après le démarrage du serveur :
+
+```bash
+cd server-example
+python benchmark.py --token change-me --requests 500 --concurrency 32 --source fr --target he
+```
+
+Le script affiche le débit ainsi que les latences moyenne, p50, p95 et p99. Tester les
+concurrences 8, 16, 32 et 64. Sur l'A40, régler ensuite `WTT_TRANSLATION_WORKERS` entre
+1 et 4 et `WTT_TRANSLATION_MAX_BATCH_TOKENS` entre 2048 et 8192. Le bon réglage est celui
+qui maximise les requêtes/seconde sans faire exploser la p95. Les chiffres réels ne
+peuvent être établis qu'une fois le conteneur exécuté sur l'A40.
 
 ## Limites et sécurité
 
@@ -177,3 +223,10 @@ bornées renvoient HTTP 429 lorsqu'elles sont pleines au lieu de saturer la mach
 La partie texte est dérivée de `purpshell/wa-web-translate` et la stratégie de capture
 audio de `ayazalam/whatsapp-voice-note-transcriber`, deux projets sous licence MIT.
 Voir `THIRD_PARTY_NOTICES.md` et `LICENSE`.
+
+Le serveur optimisé s'appuie sur la prise en charge officielle de NLLB et les mécanismes
+de parallélisme documentés par CTranslate2 :
+
+- <https://opennmt.net/CTranslate2/guides/transformers.html#nllb>
+- <https://opennmt.net/CTranslate2/parallel.html>
+- <https://opennmt.net/CTranslate2/performance.html>

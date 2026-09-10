@@ -61,6 +61,7 @@ export async function callTranslationServer(
           ],
         }),
       },
+      15_000,
     );
     const data = await response.json();
     const raw = String(data?.choices?.[0]?.message?.content ?? '');
@@ -72,17 +73,21 @@ export async function callTranslationServer(
     return { translated: parsed.translated, source: parsed.source, target: request.target };
   }
 
-  const response = await checkedFetch(endpoint(config.serverUrl, config.translationPath), {
-    method: 'POST',
-    headers: headers(config, true),
-    body: JSON.stringify({
-      text: request.text,
-      source: request.source || 'auto',
-      target: request.target,
-      model: config.translationModel || undefined,
-      style: config.personality,
-    }),
-  });
+  const response = await checkedFetch(
+    endpoint(config.serverUrl, config.translationPath),
+    {
+      method: 'POST',
+      headers: headers(config, true),
+      body: JSON.stringify({
+        text: request.text,
+        source: request.source || 'auto',
+        target: request.target,
+        model: config.translationModel || undefined,
+        style: config.personality,
+      }),
+    },
+    15_000,
+  );
   const data = await response.json();
   const translated = String(data?.translated_text ?? data?.translated ?? data?.text ?? '').trim();
   if (!translated) throw new Error('Le serveur de traduction a renvoyé une réponse vide.');
