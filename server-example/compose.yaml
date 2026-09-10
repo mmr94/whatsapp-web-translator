@@ -1,0 +1,29 @@
+services:
+  translator:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      WTT_API_TOKEN: change-this-token
+      WTT_DEVICE: cuda
+      WTT_COMPUTE_TYPE: float16
+      WTT_WHISPER_MODEL: large-v3
+      WTT_TRANSLATION_MODEL: facebook/nllb-200-distilled-600M
+      WTT_PRELOAD_MODELS: "1"
+      WTT_ASR_CONCURRENCY: "2"
+      WTT_ASR_QUEUE_SIZE: "16"
+      WTT_TRANSLATION_BATCH_SIZE: "16"
+      WTT_TRANSLATION_BATCH_WAIT_MS: "20"
+      WTT_TRANSLATION_QUEUE_SIZE: "128"
+    volumes:
+      - model-cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  model-cache:
