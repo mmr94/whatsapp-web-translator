@@ -135,6 +135,23 @@ deux volumes, donc les redémarrages suivants sont immédiats.
 Pour un test local sans jeton, omettre `WTT_API_TOKEN`. Pour un accès réseau, utiliser
 HTTPS derrière un proxy et définir obligatoirement un jeton long et aléatoire.
 
+### Docker Compose
+
+Le jeton n'est jamais écrit dans `compose.yaml` : il est lu depuis `server-example/.env`,
+fichier ignoré par git.
+
+```bash
+cd server-example
+echo "WTT_API_TOKEN=$(openssl rand -hex 32)" > .env
+docker compose up -d --build
+```
+
+Le port est publié uniquement sur `127.0.0.1:8000`. Pour y accéder depuis un autre
+poste, placer le serveur derrière un reverse proxy HTTPS (Caddy, Nginx) ou le joindre
+via un VPN (Tailscale, WireGuard), puis saisir cette adresse et le même jeton dans les
+réglages de l'extension. L'adresse et le jeton restent dans `chrome.storage.local` et
+ne sont jamais transmis au contexte de la page WhatsApp.
+
 Variables utiles :
 
 | Variable | Défaut | Rôle |
@@ -223,6 +240,12 @@ peuvent être établis qu'une fois le conteneur exécuté sur l'A40.
 La partie texte est dérivée de `purpshell/wa-web-translate` et la stratégie de capture
 audio de `ayazalam/whatsapp-voice-note-transcriber`, deux projets sous licence MIT.
 Voir `THIRD_PARTY_NOTICES.md` et `LICENSE`.
+
+Les poids des modèles ne sont pas inclus dans ce dépôt et restent soumis à leurs propres
+licences :
+
+- `facebook/nllb-200-3.3B` : **CC-BY-NC 4.0**, usage non commercial uniquement ;
+- Whisper `large-v3` : MIT.
 
 Le serveur optimisé s'appuie sur la prise en charge officielle de NLLB et les mécanismes
 de parallélisme documentés par CTranslate2 :

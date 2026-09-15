@@ -1,14 +1,14 @@
 // Page-world wrapper around chrome.storage. The page world cannot use chrome.* directly,
 // so we proxy via the content script with a lightweight RPC.
 
-import type { ChatLangMap, Config } from '@/shared/types';
-import { DEFAULT_CONFIG } from '@/shared/types';
+import type { ChatLangMap, PageConfig } from '@/shared/types';
+import { DEFAULT_CONFIG, toPageConfig } from '@/shared/types';
 
 type StoreEvent = 'config' | 'chatLangs';
 
 const subscribers = new Map<StoreEvent, Set<() => void>>();
 
-let config: Config = { ...DEFAULT_CONFIG };
+let config: PageConfig = toPageConfig(DEFAULT_CONFIG);
 let chatLangs: ChatLangMap = {};
 
 const STORE_TAG = '__waTransStore';
@@ -16,7 +16,7 @@ const STORE_TAG = '__waTransStore';
 interface StoreResp {
   [STORE_TAG]: true;
   kind: 'STORE_PUSH';
-  config?: Config;
+  config?: PageConfig;
   chatLangs?: ChatLangMap;
 }
 
@@ -68,7 +68,7 @@ export function getChatLangs(): ChatLangMap {
   return chatLangs;
 }
 
-export function getConfig(): Config {
+export function getConfig(): PageConfig {
   return config;
 }
 

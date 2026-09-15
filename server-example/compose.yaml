@@ -2,9 +2,11 @@ services:
   translator:
     build: .
     ports:
-      - "8000:8000"
+      # Local interface only: publish through an HTTPS reverse proxy or a VPN.
+      - "127.0.0.1:8000:8000"
     environment:
-      WTT_API_TOKEN: change-this-token
+      # Read from server-example/.env (see .env.example); startup fails if it is unset.
+      WTT_API_TOKEN: ${WTT_API_TOKEN:?Set WTT_API_TOKEN in server-example/.env}
       WTT_DEVICE: cuda
       WTT_ASR_COMPUTE_TYPE: float16
       WTT_WHISPER_MODEL: large-v3

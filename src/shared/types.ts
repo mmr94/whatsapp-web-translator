@@ -40,6 +40,14 @@ export const DEFAULT_CONFIG: Config = {
   diarize: false,
 };
 
+// Subset of the config exposed to the MAIN world. WhatsApp's own scripts share that
+// world, so the server address and token must never be posted there.
+export type PageConfig = Omit<Config, 'apiToken' | 'serverUrl'>;
+
+export function toPageConfig({ apiToken: _token, serverUrl: _url, ...rest }: Config): PageConfig {
+  return rest;
+}
+
 export interface ChatLangMap {
   [chatId: string]: LanguageCode;
 }

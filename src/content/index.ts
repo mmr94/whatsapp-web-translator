@@ -12,7 +12,7 @@ import {
   watchChatLangs,
   watchConfig,
 } from '@/shared/storage';
-import type { ChatLangMap, Config } from '@/shared/types';
+import { toPageConfig, type ChatLangMap, type Config } from '@/shared/types';
 import { startVoiceUi } from '@/voice/content';
 import '@/voice/styles.css';
 
@@ -102,8 +102,16 @@ window.addEventListener('pagehide', () => {
 
 // --- Store proxy: page world cannot use chrome.* directly. ---
 
-function pushStore(patch: { config?: Config; chatLangs?: ChatLangMap }) {
-  window.postMessage({ __waTransStore: true, kind: 'STORE_PUSH', ...patch }, '*');
+function pushStore({ config, chatLangs }: { config?: Config; chatLangs?: ChatLangMap }) {
+  window.postMessage(
+    {
+      __waTransStore: true,
+      kind: 'STORE_PUSH',
+      ...(config && { config: toPageConfig(config) }),
+      ...(chatLangs && { chatLangs }),
+    },
+    '*',
+  );
 }
 
 async function pushSnapshot() {
