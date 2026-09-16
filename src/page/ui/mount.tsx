@@ -9,7 +9,7 @@ import { DraftPreview } from './DraftPreview';
 import { ModalPicker } from './ModalPicker';
 import { injectStyles } from './styles';
 
-const PICKER_HOST_ID = 'wa-translate-picker-host';
+export const PICKER_HOST_ID = 'wa-translate-picker-host';
 const DRAFT_HOST_ID = 'wa-translate-draft-host';
 const MODAL_HOST_ID = 'wa-translate-modal-host';
 
@@ -19,7 +19,7 @@ let draftRoot: Root | null = null;
 let draftRootHost: HTMLElement | null = null;
 let modalRoot: Root | null = null;
 
-function findComposer(): HTMLElement | null {
+export function findComposer(): HTMLElement | null {
   // WhatsApp may use either <footer> or a div container; the composer itself is stable.
   const candidates = document.querySelectorAll<HTMLElement>(
     '[contenteditable="true"][role="textbox"]',
@@ -42,11 +42,19 @@ function findFooter(): HTMLElement | null {
 function findSendActionAnchor(): { container: HTMLElement; before: HTMLElement } | null {
   const footer = findFooter();
   if (!footer) return null;
+  // WhatsApp renames icons and labels regularly: try icons, then localized labels,
+  // then fall back to the last button of the footer (always the mic/send action).
   const icon = footer.querySelector<HTMLElement>(
-    '[data-icon="mic-outlined" i], [data-icon*="send" i], [data-icon="wds-ic-send" i]',
+    '[data-icon*="mic" i], [data-icon*="ptt" i], [data-icon*="send" i]',
   );
-  if (!icon) return null;
-  const button = icon.closest<HTMLElement>('button, [role="button"]');
+  const labelled = footer.querySelector<HTMLElement>(
+    'button[aria-label*="send" i], button[aria-label*="envoyer" i], button[aria-label*="voice" i], button[aria-label*="vocal" i]',
+  );
+  const buttons = [...footer.querySelectorAll<HTMLElement>('button, [role="button"]')].filter(
+    (el) => !el.closest(`#${PICKER_HOST_ID}, #${DRAFT_HOST_ID}`),
+  );
+  const button =
+    icon?.closest<HTMLElement>('button, [role="button"]') ?? labelled ?? buttons[buttons.length - 1] ?? null;
   if (!button) return null;
   // Walk up to the first ancestor that is NOT a single-child wrapper around `button`.
   // That gives us a stable container that's already laying out multiple action items.
@@ -135,16 +143,15 @@ export function mountUI(): void {
     );
   }
 
-  let logged = false;
+  // Log only when the probe result changes, so a late-rendered footer is visible too.
+  let lastProbe = '';
   const tick = () => {
     const anchor = findSendActionAnchor();
     const composer = findComposer();
-    if (!logged && (anchor || composer)) {
-      console.info('[wa-translate] DOM probe', {
-        composer: !!composer,
-        anchor: !!anchor,
-      });
-      logged = true;
+    const probe = `${!!composer}/${!!anchor}`;
+    if (composer && probe !== lastProbe) {
+      console.info('[wa-translate] DOM probe', { composer: !!composer, anchor: !!anchor });
+      lastProbe = probe;
     }
 
     const pickerHost = ensurePickerHost();

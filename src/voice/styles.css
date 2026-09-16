@@ -1,42 +1,91 @@
+/* Voice transcription UI, rendered inside WhatsApp's own bubble. Colors derive from the
+   bubble's text color (currentColor) so light, dark and outgoing bubbles all work. */
 .wtt-voice {
   box-sizing: border-box;
-  clear: both;
-  color: var(--primary, #111b21);
-  font-family: system-ui, sans-serif;
-  font-size: 12px;
-  margin: 4px 8px 3px;
-  max-width: 420px;
-  position: relative;
-  z-index: 2;
+  font: 400 13.5px/1.4 inherit;
+  margin: 2px 0 2px;
+  max-width: 460px;
+  padding: 0 6px 4px;
+  min-width: 0;
 }
-
-.wtt-voice-bar { align-items: center; display: flex; gap: 8px; }
-.wtt-voice-btn {
+.wtt-voice-bar {
   align-items: center;
-  background: rgba(0, 168, 132, .12);
+  display: flex;
+  gap: 8px;
+  min-height: 26px;
+}
+.wtt-voice[data-state="done"] .wtt-voice-bar { display: none; }
+
+.wtt-chip {
+  appearance: none;
+  background: color-mix(in srgb, #00a884 16%, transparent);
   border: 0;
   border-radius: 999px;
-  color: #008069;
+  color: #00a884;
   cursor: pointer;
-  display: inline-flex;
-  font: 600 12px/1 system-ui, sans-serif;
-  gap: 5px;
-  padding: 6px 10px;
+  font: 500 12.5px/1 inherit;
+  font-family: inherit;
+  padding: 6px 12px;
+  transition: background 120ms ease, opacity 120ms ease;
 }
-.wtt-voice-btn:hover { background: rgba(0, 168, 132, .2); }
-.wtt-voice-btn:disabled { cursor: wait; opacity: .55; }
-.wtt-voice-status { color: var(--secondary, #667781); font-size: 11px; }
-.wtt-voice-status[data-error="true"] { color: #d93025; }
-.wtt-voice-result {
-  background: rgba(255, 255, 255, .58);
-  border-left: 3px solid #00a884;
-  border-radius: 5px;
-  margin-top: 5px;
-  padding: 7px 9px;
+.wtt-chip:hover { background: color-mix(in srgb, #00a884 26%, transparent); }
+.wtt-chip:disabled { cursor: default; opacity: .5; }
+.wtt-voice[data-state="busy"] .wtt-chip { display: none; }
+
+.wtt-voice-status {
+  font-size: 12.5px;
+  opacity: .65;
+}
+.wtt-voice[data-state="busy"] .wtt-voice-status::before {
+  animation: wtt-pulse 1s ease-in-out infinite;
+  background: #00a884;
+  border-radius: 50%;
+  content: '';
+  display: inline-block;
+  height: 7px;
+  margin-right: 7px;
+  vertical-align: 1px;
+  width: 7px;
+}
+.wtt-voice[data-state="error"] .wtt-voice-status { color: #f15c6d; opacity: 1; }
+@keyframes wtt-pulse { 50% { opacity: .25; } }
+
+.wtt-voice-result { display: none; }
+.wtt-voice[data-state="done"] .wtt-voice-result {
+  border-top: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  display: block;
+  padding-top: 6px;
+}
+.wtt-voice-text {
+  font-size: 14.2px;
+  line-height: 1.45;
   white-space: pre-wrap;
+  user-select: text;
 }
-.wtt-voice-translation { font-weight: 600; }
-.wtt-voice-original { color: var(--secondary, #667781); margin-top: 5px; }
-.wtt-voice-actions { display: flex; gap: 12px; margin-top: 5px; }
-.wtt-voice-link { background: none; border: 0; color: #008069; cursor: pointer; font: 600 11px system-ui; padding: 0; }
-[data-theme="dark"] .wtt-voice-result { background: rgba(17, 27, 33, .45); }
+.wtt-voice-meta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  gap: 4px 12px;
+  margin-top: 4px;
+}
+.wtt-voice-lang { opacity: .6; }
+.wtt-voice-original {
+  font-size: 13px;
+  margin-top: 4px;
+  opacity: .7;
+  white-space: pre-wrap;
+  user-select: text;
+}
+.wtt-link {
+  appearance: none;
+  background: none;
+  border: 0;
+  color: #00a884;
+  cursor: pointer;
+  font: 500 11.5px inherit;
+  font-family: inherit;
+  padding: 0;
+}
+.wtt-link:hover { text-decoration: underline; }

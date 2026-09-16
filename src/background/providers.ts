@@ -89,7 +89,10 @@ export async function callTranslationServer(
     15_000,
   );
   const data = await response.json();
-  const translated = String(data?.translated_text ?? data?.translated ?? data?.text ?? '').trim();
+  // NLLB detokenization leaves a space before closing punctuation ("Je comprends .").
+  const translated = String(data?.translated_text ?? data?.translated ?? data?.text ?? '')
+    .replace(/\s+([.,…)\]])/g, '$1')
+    .trim();
   if (!translated) throw new Error('Le serveur de traduction a renvoyé une réponse vide.');
   return {
     translated,

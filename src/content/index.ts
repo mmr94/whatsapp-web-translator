@@ -13,6 +13,7 @@ import {
   watchConfig,
 } from '@/shared/storage';
 import { toPageConfig, type ChatLangMap, type Config } from '@/shared/types';
+import { HEALTH_KEY, HEALTH_TAG, mergeReports, worstStatus, type HealthReport } from '@/shared/health';
 import { startVoiceUi } from '@/voice/content';
 import '@/voice/styles.css';
 
@@ -88,6 +89,16 @@ window.addEventListener('message', (e) => {
     return;
   }
 
+  if (__DEV_RELOAD__ && data['__wttDev'] === 'reload') {
+    chrome.runtime.sendMessage({ kind: 'DEV_RELOAD' });
+    return;
+  }
+
+  if (data[HEALTH_TAG]) {
+    void storeHealth(data[HEALTH_TAG] as HealthReport);
+    return;
+  }
+
   if (data['__waTransStore'] === true) {
     handleStoreMsg(data);
   }
@@ -99,6 +110,17 @@ window.addEventListener('pagehide', () => {
   } catch {}
   port = null;
 });
+
+async function storeHealth(report: HealthReport) {
+  try {
+    const stored = await chrome.storage.local.get(HEALTH_KEY);
+    const merged = mergeReports((stored[HEALTH_KEY] as HealthReport) ?? null, report);
+    await chrome.storage.local.set({ [HEALTH_KEY]: merged });
+    await chrome.runtime.sendMessage({ kind: 'HEALTH_STATUS', status: worstStatus(merged) });
+  } catch {
+    // Extension reloaded under this tab: nothing to report to anymore.
+  }
+}
 
 // --- Store proxy: page world cannot use chrome.* directly. ---
 

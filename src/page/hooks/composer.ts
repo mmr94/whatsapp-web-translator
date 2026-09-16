@@ -16,7 +16,7 @@ export interface ComposerState {
   error: string | null;
 }
 
-const state: ComposerState = {
+let state: ComposerState = {
   chatId: null,
   targetLang: null,
   source: '',
@@ -28,7 +28,8 @@ const state: ComposerState = {
 const listeners = new Set<Listener>();
 
 function update(patch: Partial<ComposerState>) {
-  Object.assign(state, patch);
+  // Always a new object: React skips re-rendering when setState gets the same reference.
+  state = { ...state, ...patch };
   for (const fn of listeners) {
     try {
       fn(state);

@@ -13,12 +13,12 @@ export function DraftPreview() {
   return (
     <div className="wa-translate-draft" data-empty={empty ? 'true' : 'false'}>
       <span className="wa-translate-draft-label">
-        {state.targetLang ? `Preview · ${languageLabel(state.targetLang)}` : 'Preview'}
+        {state.targetLang ? `Envoyé en ${languageLabel(state.targetLang)}` : 'Aperçu'}
       </span>
       {state.error ? (
         <span className="wa-translate-draft-error">{state.error}</span>
       ) : state.loading ? (
-        <span className="wa-translate-draft-loading">Translating</span>
+        <span className="wa-translate-draft-loading">Traduction</span>
       ) : (
         <span>{state.translation}</span>
       )}

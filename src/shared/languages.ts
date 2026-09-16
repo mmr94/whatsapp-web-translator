@@ -55,5 +55,6 @@ export function getLanguage(code: LanguageCode): Language | undefined {
 
 export function languageLabel(code: LanguageCode): string {
   const l = BY_CODE.get(code);
-  return l ? `${l.native} (${l.name})` : code;
+  if (!l) return code;
+  return l.native === l.name ? l.native : `${l.native} (${l.name})`;
 }

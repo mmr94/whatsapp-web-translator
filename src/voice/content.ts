@@ -1,25 +1,30 @@
 import type { Config, TranscribeResult, TranslateResult } from '@/shared/types';
 import { DEFAULT_CONFIG } from '@/shared/types';
 import { newRpcId } from '@/shared/messages';
+import { languageLabel } from '@/shared/languages';
+
+// Voice-note bubbles are tagged by the page world (`data-wtt-voice="in|out"`) from
+// WhatsApp's message models; the page world fetches and decrypts the audio silently.
 
 const PAGE_TAG = '__wttVoice';
 const CACHE_KEY = 'voiceCache';
-const VOICE_HINTS = '[data-icon="ptt-status"], [aria-label="Voice message"], [aria-label="Play voice message"]';
+const ROW_SELECTOR = '#main [data-id][data-wtt-voice]';
 
-type VoiceCache = Record<string, { transcript: string; translation?: string; language?: string; ts: number }>;
-type PageResponse = { ok: boolean; blob?: Blob; error?: string };
+type VoiceEntry = { transcript: string; translation?: string; language?: string; ts: number };
+type VoiceCache = Record<string, VoiceEntry>;
+type PageResponse = { ok: boolean; buffer?: ArrayBuffer; mimeType?: string; error?: string };
 
 let config: Config = { ...DEFAULT_CONFIG };
 let pageSequence = 0;
 const pagePending = new Map<number, (response: PageResponse) => void>();
 
-function askPage(action: string, extra: Record<string, unknown> = {}, timeout = 30_000): Promise<PageResponse> {
+function askPage(action: string, extra: Record<string, unknown> = {}, timeout = 60_000): Promise<PageResponse> {
   const id = ++pageSequence;
   return new Promise((resolve) => {
     pagePending.set(id, resolve);
     window.postMessage({ [PAGE_TAG]: 'req', id, action, ...extra }, '*');
     setTimeout(() => {
-      if (pagePending.delete(id)) resolve({ ok: false, error: 'Délai audio dépassé' });
+      if (pagePending.delete(id)) resolve({ ok: false, error: 'WhatsApp ne répond pas. Rechargez la page.' });
     }, timeout);
   });
 }
@@ -45,76 +50,6 @@ function rpc<T>(kind: 'TRANSLATE_REQUEST' | 'TRANSCRIBE_REQUEST', payload: unkno
   });
 }
 
-function press(element: HTMLElement): void {
-  const options = { bubbles: true, cancelable: true, composed: true };
-  try {
-    element.dispatchEvent(new PointerEvent('pointerdown', options));
-    element.dispatchEvent(new MouseEvent('mousedown', options));
-    element.dispatchEvent(new PointerEvent('pointerup', options));
-    element.dispatchEvent(new MouseEvent('mouseup', options));
-  } catch {}
-  element.click();
-}
-
-const controlIcon = (element: HTMLElement | null) => (element?.textContent || '').trim().toLowerCase();
-const isDownload = (element: HTMLElement | null) => /download/.test(controlIcon(element));
-
-function findTransportButton(row: HTMLElement): HTMLElement | null {
-  const buttons = [...row.querySelectorAll<HTMLElement>('button')].filter((button) => !button.closest('.wtt-voice'));
-  const slider = row.querySelector('[role="slider"]');
-  if (slider) {
-    const before = buttons.filter((button) => button.compareDocumentPosition(slider) & Node.DOCUMENT_POSITION_FOLLOWING);
-    if (before.length) return before[before.length - 1];
-  }
-  return buttons.find((button) => !/\d\s*[.,]?\d*\s*[x×]/i.test(button.textContent || '')) || null;
-}
-
-async function waitFor<T>(probe: () => T | null, timeout = 25_000): Promise<T | null> {
-  const started = Date.now();
-  while (Date.now() - started < timeout) {
-    const value = probe();
-    if (value) return value;
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  return null;
-}
-
-async function captureAudio(row: HTMLElement, status: (value: string) => void): Promise<Blob> {
-  const alive = await askPage('ping', {}, 2_000);
-  if (!alive.ok) throw new Error('Rechargez l’onglet WhatsApp Web.');
-
-  let button = findTransportButton(row);
-  if (!button) throw new Error('Contrôle du message vocal introuvable.');
-  if (isDownload(button)) {
-    status('Téléchargement…');
-    press(button);
-    button = await waitFor(() => {
-      const next = findTransportButton(row);
-      return next && !isDownload(next) ? next : null;
-    });
-    if (!button) throw new Error('WhatsApp n’a pas téléchargé ce vocal.');
-  }
-
-  const id = ++pageSequence;
-  const captured = new Promise<PageResponse>((resolve) => {
-    pagePending.set(id, resolve);
-    setTimeout(() => {
-      if (pagePending.delete(id)) resolve({ ok: false, error: 'Capture audio expirée' });
-    }, 35_000);
-  });
-  window.postMessage({ [PAGE_TAG]: 'req', id, action: 'arm', ms: 38_000 }, '*');
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  status('Lecture du vocal…');
-  press(button);
-
-  const response = await captured;
-  await askPage('hold', { ms: 2_000 }, 3_000);
-  await askPage('silence', {}, 3_000);
-  await askPage('disarm', {}, 3_000);
-  if (!response.ok || !response.blob) throw new Error(response.error || 'Capture audio impossible.');
-  return response.blob;
-}
-
 function toBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = '';
@@ -124,29 +59,12 @@ function toBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-function messageId(row: HTMLElement): string {
-  const element = row.querySelector('[data-id]') || row.closest('[data-id]');
-  return element?.getAttribute('data-id') || `visible:${row.innerText.slice(0, 100)}`;
-}
-
-function isVoiceNote(row: HTMLElement): boolean {
-  return !!row.querySelector(`${VOICE_HINTS}, audio, [aria-label*="voice message" i], [aria-label*="voice note" i]`);
-}
-
-function isOutgoing(row: HTMLElement): boolean {
-  const anchor = row.querySelector<HTMLElement>(VOICE_HINTS) || row.firstElementChild as HTMLElement | null;
-  if (!anchor) return false;
-  const a = anchor.getBoundingClientRect();
-  const r = row.getBoundingClientRect();
-  return r.width > 0 && (a.left + a.right) / 2 > (r.left + r.right) / 2;
-}
-
-async function readCache(id: string) {
+async function readCache(id: string): Promise<VoiceEntry | null> {
   const stored = await chrome.storage.local.get(CACHE_KEY);
   return ((stored[CACHE_KEY] || {}) as VoiceCache)[id] || null;
 }
 
-async function writeCache(id: string, value: VoiceCache[string]) {
+async function writeCache(id: string, value: VoiceEntry) {
   const stored = await chrome.storage.local.get(CACHE_KEY);
   const cache = (stored[CACHE_KEY] || {}) as VoiceCache;
   cache[id] = value;
@@ -154,116 +72,170 @@ async function writeCache(id: string, value: VoiceCache[string]) {
   await chrome.storage.local.set({ [CACHE_KEY]: Object.fromEntries(entries) });
 }
 
-function makeElement<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string) {
+function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string) {
   const element = document.createElement(tag);
   if (className) element.className = className;
   if (text != null) element.textContent = text;
   return element;
 }
 
-function renderResult(result: HTMLElement, data: VoiceCache[string]) {
-  result.replaceChildren();
-  if (data.translation) result.append(makeElement('div', 'wtt-voice-translation', data.translation));
-  result.append(makeElement('div', data.translation ? 'wtt-voice-original' : '', data.transcript));
-  const actions = makeElement('div', 'wtt-voice-actions');
-  const copy = makeElement('button', 'wtt-voice-link', 'Copier');
-  copy.type = 'button';
-  copy.onclick = async () => {
-    await navigator.clipboard.writeText(data.translation || data.transcript);
-    copy.textContent = 'Copié';
-    setTimeout(() => (copy.textContent = 'Copier'), 1_200);
-  };
-  actions.append(copy);
-  result.append(actions);
-  result.hidden = false;
+// The bubble is the first descendant painted as a rounded card. Detected from computed
+// style rather than class names, which WhatsApp regenerates on every release.
+function findBubble(row: HTMLElement): HTMLElement {
+  const queue: HTMLElement[] = [...(row.children as HTMLCollectionOf<HTMLElement>)];
+  while (queue.length) {
+    const node = queue.shift()!;
+    const style = getComputedStyle(node);
+    const painted = !/rgba\(\s*0,\s*0,\s*0,\s*0\s*\)|transparent/.test(style.backgroundColor);
+    if (painted && parseFloat(style.borderTopLeftRadius) > 0 && node.offsetWidth >= 120) return node;
+    queue.push(...(node.children as HTMLCollectionOf<HTMLElement>));
+  }
+  return row;
 }
 
-async function processVoice(row: HTMLElement, button: HTMLButtonElement, status: HTMLElement, result: HTMLElement, force = false) {
-  if (row.dataset.wttVoiceBusy === '1') return;
-  row.dataset.wttVoiceBusy = '1';
-  button.disabled = true;
-  status.dataset.error = 'false';
-  const id = messageId(row);
-  try {
-    if (!force) {
-      const cached = await readCache(id);
-      if (cached) {
-        renderResult(result, cached);
-        button.hidden = true;
-        status.textContent = cached.language || '';
-        return;
+interface VoiceUi {
+  host: HTMLElement;
+  setIdle(label?: string): void;
+  setBusy(text: string): void;
+  setError(text: string): void;
+  setResult(entry: VoiceEntry): void;
+}
+
+function buildUi(onRun: () => void): VoiceUi {
+  const host = el('div', 'wtt-voice');
+  for (const type of ['click', 'mousedown', 'mouseup', 'pointerdown', 'pointerup', 'dblclick']) {
+    host.addEventListener(type, (e) => e.stopPropagation());
+  }
+
+  const bar = el('div', 'wtt-voice-bar');
+  const button = el('button', 'wtt-chip', 'Transcrire');
+  button.type = 'button';
+  button.onclick = onRun;
+  const status = el('span', 'wtt-voice-status');
+  bar.append(button, status);
+  const result = el('div', 'wtt-voice-result');
+  host.append(bar, result);
+
+  const show = (state: string) => (host.dataset.state = state);
+
+  return {
+    host,
+    setIdle(label = 'Transcrire') {
+      show('idle');
+      button.textContent = label;
+      button.disabled = false;
+      status.textContent = '';
+    },
+    setBusy(text) {
+      show('busy');
+      button.disabled = true;
+      status.textContent = text;
+    },
+    setError(text) {
+      show('error');
+      button.textContent = 'Réessayer';
+      button.disabled = false;
+      status.textContent = text;
+    },
+    setResult(entry) {
+      show('done');
+      result.replaceChildren();
+      const main = el('div', 'wtt-voice-text', entry.translation || entry.transcript);
+      result.append(main);
+
+      const meta = el('div', 'wtt-voice-meta');
+      const lang = entry.language && entry.language !== 'unknown' ? languageLabel(entry.language) : '';
+      if (entry.translation) {
+        const toggle = el('button', 'wtt-link', 'Voir l’original');
+        toggle.type = 'button';
+        const original = el('div', 'wtt-voice-original', entry.transcript);
+        original.hidden = true;
+        toggle.onclick = () => {
+          original.hidden = !original.hidden;
+          toggle.textContent = original.hidden ? 'Voir l’original' : 'Masquer l’original';
+        };
+        meta.append(el('span', 'wtt-voice-lang', lang ? `Traduit · ${lang}` : 'Traduit'), toggle);
+        result.append(meta, original);
+      } else {
+        if (lang) meta.append(el('span', 'wtt-voice-lang', lang));
+        result.append(meta);
       }
-    }
-    const audio = await captureAudio(row, (text) => (status.textContent = text));
-    status.textContent = 'Transcription…';
+      const copy = el('button', 'wtt-link', 'Copier');
+      copy.type = 'button';
+      copy.onclick = async () => {
+        await navigator.clipboard.writeText(entry.translation || entry.transcript);
+        copy.textContent = 'Copié';
+        setTimeout(() => (copy.textContent = 'Copier'), 1_200);
+      };
+      const redo = el('button', 'wtt-link', 'Retranscrire');
+      redo.type = 'button';
+      redo.onclick = onRun;
+      meta.append(copy, redo);
+    },
+  };
+}
+
+async function transcribe(key: string, ui: VoiceUi) {
+  try {
+    ui.setBusy('Récupération de l’audio…');
+    const audio = await askPage('fetch', { key });
+    if (!audio.ok || !audio.buffer) throw new Error(audio.error || 'Audio inaccessible.');
+
+    ui.setBusy('Transcription…');
     const transcription = await rpc<TranscribeResult>('TRANSCRIBE_REQUEST', {
-      base64: toBase64(await audio.arrayBuffer()),
-      mimeType: audio.type || 'audio/ogg',
+      base64: toBase64(audio.buffer),
+      mimeType: audio.mimeType || 'audio/ogg',
       language: config.voiceSourceLang,
       diarize: config.diarize,
     });
 
     let translation = '';
-    if (config.autoTranslateVoice && transcription.text) {
-      status.textContent = 'Traduction…';
+    const spoken = transcription.language;
+    if (config.autoTranslateVoice && transcription.text && spoken !== config.nativeLang) {
+      ui.setBusy('Traduction…');
       const translated = await rpc<TranslateResult>('TRANSLATE_REQUEST', {
         text: transcription.text,
-        source: transcription.language || 'auto',
+        source: spoken && spoken !== 'unknown' ? spoken : 'auto',
         target: config.nativeLang,
       });
       if (translated.translated.trim() !== transcription.text.trim()) translation = translated.translated;
     }
-    const data = { transcript: transcription.text, translation, language: transcription.language, ts: Date.now() };
-    await writeCache(id, data);
-    renderResult(result, data);
-    button.hidden = true;
-    status.textContent = transcription.language || '';
+
+    const entry: VoiceEntry = { transcript: transcription.text, translation, language: spoken, ts: Date.now() };
+    await writeCache(key, entry);
+    ui.setResult(entry);
   } catch (error) {
-    button.disabled = false;
-    button.textContent = 'Réessayer';
-    status.dataset.error = 'true';
-    status.textContent = (error as Error)?.message ?? String(error);
-  } finally {
-    delete row.dataset.wttVoiceBusy;
+    ui.setError((error as Error)?.message ?? String(error));
   }
 }
 
-async function attach(row: HTMLElement): Promise<void> {
-  row.dataset.wttVoiceReady = '1';
-  const host = makeElement('div', 'wtt-voice');
-  const bar = makeElement('div', 'wtt-voice-bar');
-  const button = makeElement('button', 'wtt-voice-btn', '◉ Transcrire');
-  button.type = 'button';
-  const status = makeElement('span', 'wtt-voice-status');
-  const result = makeElement('div', 'wtt-voice-result');
-  result.hidden = true;
-  bar.append(button, status);
-  host.append(bar, result);
-  for (const event of ['click', 'mousedown', 'mouseup', 'pointerdown']) {
-    host.addEventListener(event, (e) => e.stopPropagation());
-  }
-  row.append(host);
+const mounted = new WeakMap<HTMLElement, VoiceUi>();
+const busy = new Set<string>();
 
-  const cached = await readCache(messageId(row));
-  if (cached) {
-    renderResult(result, cached);
-    button.hidden = true;
-    status.textContent = cached.language || '';
-  }
-  button.onclick = () => void processVoice(row, button, status, result, true);
-  if (!cached && config.autoTranscribeVoice && !isOutgoing(row)) {
-    setTimeout(() => void processVoice(row, button, status, result), 400);
-  }
+async function attach(row: HTMLElement) {
+  const key = row.getAttribute('data-id');
+  if (!key) return;
+  const existing = mounted.get(row);
+  if (existing?.host.isConnected) return;
+
+  const run = () => {
+    if (busy.has(key)) return;
+    busy.add(key);
+    void transcribe(key, ui).finally(() => busy.delete(key));
+  };
+  const ui = buildUi(run);
+  mounted.set(row, ui);
+  findBubble(row).append(ui.host);
+
+  const cached = await readCache(key);
+  if (cached) ui.setResult(cached);
+  else ui.setIdle();
+
+  if (!cached && config.autoTranscribeVoice && row.dataset.wttVoice === 'in') run();
 }
 
-function scan(root: ParentNode = document): void {
-  const rows = root.querySelectorAll<HTMLElement>('div[role="row"], div[data-id]');
-  for (const row of rows) {
-    if (row.dataset.wttVoiceReady === '1' && row.querySelector('.wtt-voice')) continue;
-    if (!isVoiceNote(row)) continue;
-    if (row.parentElement?.closest('div[role="row"]')) continue;
-    void attach(row);
-  }
+function scan() {
+  for (const row of document.querySelectorAll<HTMLElement>(ROW_SELECTOR)) void attach(row);
 }
 
 export async function startVoiceUi(): Promise<void> {
@@ -282,16 +254,14 @@ export async function startVoiceUi(): Promise<void> {
     }
   });
 
-  let scheduled = false;
-  const schedule = () => {
-    if (scheduled) return;
-    scheduled = true;
-    requestAnimationFrame(() => {
-      scheduled = false;
+  // setTimeout, not requestAnimationFrame: rAF is paused while the window is hidden.
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  new MutationObserver(() => {
+    if (timer) return;
+    timer = setTimeout(() => {
+      timer = null;
       scan();
-    });
-  };
-  new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
-  setInterval(() => scan(), 2_000);
+    }, 200);
+  }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-wtt-voice'] });
   scan();
 }

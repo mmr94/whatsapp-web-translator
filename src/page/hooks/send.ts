@@ -1,9 +1,9 @@
 // Hook the outgoing-text-message send so we can replace the body with a translation
 // (and optionally include the original) before WhatsApp encodes/transmits it.
 //
-// The exact module/function name has shifted across WhatsApp Web versions. We try a
-// list of known candidates and install on the first one we find. If all of them are
-// missing, we log and fall back to a no-op.
+// The exact module/function name has shifted across WhatsApp Web versions. Candidates are
+// grouped by purpose and tried in order: only the first one found in a group is hooked, so
+// a message can never be translated twice by a primary and a fallback.
 
 import { tryRequire } from '../wa';
 import { translate } from '../bridge';
@@ -20,35 +20,58 @@ interface Candidate {
 // Verified live against current WhatsApp Web (compose flow in WAWebComposeBox.react):
 //   o("WAWebSendTextMsgChatAction").sendTextMsgToChat(chat, body, options)
 //   o("WAWebNewsletterSendMsgAction").sendNewsletterTextMsg(chat, body, options)
-const CANDIDATES: Candidate[] = [
-  { module: 'WAWebSendTextMsgChatAction', function: 'sendTextMsgToChat', bodyArgIndex: 1, chatArgIndex: 0 },
-  { module: 'WAWebNewsletterSendMsgAction', function: 'sendNewsletterTextMsg', bodyArgIndex: 1, chatArgIndex: 0 },
-  // Fallbacks if WhatsApp renames in the future:
-  { module: 'WAWebSendTextMsgChatAction', function: 'addAndSendTextMsg', bodyArgIndex: 1, chatArgIndex: 0 },
-];
+const GROUPS: Record<'chat' | 'newsletter', Candidate[]> = {
+  chat: [
+    { module: 'WAWebSendTextMsgChatAction', function: 'sendTextMsgToChat', bodyArgIndex: 1, chatArgIndex: 0 },
+    // Fallback if WhatsApp renames the primary entry point.
+    { module: 'WAWebSendTextMsgChatAction', function: 'addAndSendTextMsg', bodyArgIndex: 1, chatArgIndex: 0 },
+  ],
+  newsletter: [
+    { module: 'WAWebNewsletterSendMsgAction', function: 'sendNewsletterTextMsg', bodyArgIndex: 1, chatArgIndex: 0 },
+  ],
+};
 
-export function installSendHook(): Array<{ module: string; function: string }> {
-  const installed: Array<{ module: string; function: string }> = [];
-  for (const c of CANDIDATES) {
+export interface SendHookState {
+  chat: { installed: string | null; fallback: boolean };
+  newsletter: { installed: string | null; fallback: boolean };
+  lastError: string | null;
+}
+
+const state: SendHookState = {
+  chat: { installed: null, fallback: false },
+  newsletter: { installed: null, fallback: false },
+  lastError: null,
+};
+
+export function getSendHookState(): SendHookState {
+  return state;
+}
+
+export function installSendHook(): void {
+  for (const group of ['chat', 'newsletter'] as const) {
+    const candidates = GROUPS[group];
+    const index = candidates.findIndex((c) => typeof tryRequire(c.module)?.[c.function] === 'function');
+    if (index < 0) {
+      console.warn(`[wa-translate] no ${group} send function found; outbound translation disabled there`);
+      continue;
+    }
+    const c = candidates[index];
     const mod = tryRequire(c.module);
-    if (!mod || typeof mod[c.function] !== 'function') continue;
     const orig = mod[c.function].bind(mod);
     mod[c.function] = async (...args: any[]) => {
       try {
         const next = await maybeRewrite(args, c);
+        state.lastError = null;
         return orig(...next);
       } catch (err) {
+        state.lastError = err instanceof Error ? err.message : String(err);
         console.warn(`[wa-translate] ${c.module}.${c.function} rewrite failed:`, err);
         return orig(...args);
       }
     };
-    installed.push({ module: c.module, function: c.function });
+    state[group] = { installed: `${c.module}.${c.function}`, fallback: index > 0 };
     console.info(`[wa-translate] send hook installed on ${c.module}.${c.function}`);
   }
-  if (installed.length === 0) {
-    console.warn('[wa-translate] no candidate send module found; outbound translation disabled');
-  }
-  return installed;
 }
 
 async function maybeRewrite(args: any[], c: Candidate): Promise<any[]> {

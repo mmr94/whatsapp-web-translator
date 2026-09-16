@@ -1,4 +1,5 @@
 import { loadConfig } from '@/shared/storage';
+import type { HealthStatus } from '@/shared/health';
 import type { TranslateRequest, TranslateResult } from '@/shared/types';
 import { callTranscriptionServer, callTranslationServer, testServer } from './providers';
 import type { RpcMessage, TranscribeRpcRequest, TranslateRpcRequest } from '@/shared/messages';
@@ -51,6 +52,14 @@ async function transcribe(req: TranscribeRpcRequest['payload']) {
 }
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (__DEV_RELOAD__ && msg?.kind === 'DEV_RELOAD') {
+    chrome.runtime.reload();
+    return false;
+  }
+  if (msg?.kind === 'HEALTH_STATUS') {
+    setBadge(msg.status);
+    return false;
+  }
   if (msg?.kind === 'PING_CONFIG') {
     loadConfig().then((c) => {
       sendResponse({
@@ -59,6 +68,19 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         nativeLang: c.nativeLang,
       });
     });
+    return true;
+  }
+  if (msg?.kind === 'SELF_TEST') {
+    // Health route, then a real translation: catches a wrong token or translation route
+    // that /health alone would not reveal.
+    loadConfig()
+      .then(async (config) => {
+        await testServer(config);
+        const result = await callTranslationServer(config, { text: 'Bonjour', source: 'fr', target: 'en' });
+        return { ok: true, message: `« Bonjour » → « ${result.translated} »` };
+      })
+      .then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error?.message ?? String(error) }));
     return true;
   }
   if (msg?.kind === 'TEST_SERVER') {
@@ -70,3 +92,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
   return false;
 });
+
+// Toolbar badge: nothing when healthy, orange when a fallback is in use, red when broken.
+function setBadge(status: HealthStatus) {
+  const badge: Record<HealthStatus, { text: string; color: string }> = {
+    ok: { text: '', color: '#00a884' },
+    idle: { text: '', color: '#00a884' },
+    degraded: { text: '!', color: '#f5a623' },
+    down: { text: '!', color: '#f15c6d' },
+  };
+  const { text, color } = badge[status] ?? badge.idle;
+  void chrome.action.setBadgeText({ text });
+  void chrome.action.setBadgeBackgroundColor({ color });
+}

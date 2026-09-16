@@ -72,6 +72,9 @@ function rewireMainWorldEntry(): Plugin {
 
 export default defineConfig({
   plugins: [react(), crx({ manifest }), rewireMainWorldEntry()],
+  define: {
+    __DEV_RELOAD__: JSON.stringify(process.env.WTT_DEV === '1'),
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),

@@ -6,11 +6,12 @@ privé. Aucun fournisseur d'IA externe n'est codé en dur.
 
 ## Fonctionnalités
 
-- traduction automatique des textes reçus vers votre langue ;
+- traduction des messages reçus affichée sous l'original, historique compris ;
 - langue de destination configurable par conversation pour les messages envoyés ;
 - aperçu de la traduction pendant la saisie ;
 - remplacement du texte juste avant l'envoi ;
-- bouton `Transcrire` sous chaque note vocale ;
+- bouton `Transcrire` dans chaque note vocale : l'audio est téléchargé et déchiffré en
+  silence, sans lecture et sans marquer le vocal comme écouté ;
 - traduction facultative de la transcription ;
 - transcription automatique facultative des nouveaux vocaux reçus ;
 - cache local des transcriptions et paramètres dans `chrome.storage.local` ;
@@ -42,6 +43,30 @@ Concrètement : ouvrez une conversation, cliquez sur `🌐 Traduire`, recherchez
 exemple `English`, puis choisissez `English (en)`. Ce choix est mémorisé uniquement
 pour cette conversation. Rouvrez le même menu et cliquez sur **Effacer la traduction**
 pour revenir aux messages non traduits.
+
+## Stabilité et diagnostic
+
+L'extension s'appuie sur l'interne de WhatsApp Web, qui change sans prévenir. Pour limiter
+la casse et la rendre visible :
+
+- **aucune classe CSS** : les messages sont reliés à leur modèle WhatsApp via `data-id`, le
+  type, le sens et le texte viennent des données, pas du rendu ni de la langue de l'interface ;
+- **vocaux sans module interne** : l'audio est téléchargé sur le CDN média de WhatsApp puis
+  déchiffré (HKDF + AES-CBC, signature vérifiée) avec la clé du message ; le téléchargeur
+  interne ne sert que de secours ;
+- **fonctions de secours** : l'envoi essaie plusieurs points d'entrée connus, un seul est
+  intercepté ;
+- **vérifications en direct** : toutes les 5 secondes, la page contrôle l'accès à WhatsApp,
+  la lecture des messages, les traductions reçues et envoyées, le bouton de langue et les
+  vocaux ;
+- **pastille sur l'icône** : orange quand une fonction tourne sur un secours, rouge quand
+  elle est cassée ;
+- **popup** : état détaillé de chaque fonction, test réel du serveur (santé puis traduction
+  de « Bonjour ») et bouton **Copier le diagnostic** à joindre à un signalement.
+
+Pour développer, `WTT_DEV=1 pnpm build` produit un build qui peut être rechargé depuis
+l'onglet WhatsApp (`window.postMessage({__wttDev:'reload'}, '*')`). Les builds normaux
+(`pnpm build`) n'incluent pas ce raccourci.
 
 ## Contrat d'API
 
@@ -225,7 +250,6 @@ peuvent être établis qu'une fois le conteneur exécuté sur l'A40.
 
 ## Limites et sécurité
 
-- L'option de transcription automatique peut marquer les vocaux comme écoutés.
 - WhatsApp modifie régulièrement son interface et ses modules internes. Une mise à jour
   WhatsApp peut nécessiter d'ajuster les hooks ou les sélecteurs.
 - Cette extension est non officielle et réservée à un usage personnel. Les hooks internes

@@ -48,7 +48,7 @@ export function LanguagePicker({ chatIdSignal }: Props) {
     setQuery('');
   };
 
-  const label = current ? current.toUpperCase() : 'Translate';
+  const label = current ? current.toUpperCase() : 'Traduire';
 
   return (
     <div className="wa-translate-picker-host">
@@ -57,7 +57,7 @@ export function LanguagePicker({ chatIdSignal }: Props) {
         data-active={current ? 'true' : 'false'}
         type="button"
         onClick={() => setOpen((o) => !o)}
-        title={current ? `Translating to ${languageLabel(current)}` : 'Pick translation target'}
+        title={current ? `Mes messages sont traduits en ${languageLabel(current)}` : 'Traduire mes messages dans cette discussion'}
         disabled={!chatId}
       >
         <span aria-hidden>🌐</span>
@@ -67,7 +67,7 @@ export function LanguagePicker({ chatIdSignal }: Props) {
         <div ref={popRef} className="wa-translate-picker-pop">
           <input
             className="wa-translate-picker-search"
-            placeholder="Search language…"
+            placeholder="Rechercher une langue…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoFocus
@@ -87,12 +87,12 @@ export function LanguagePicker({ chatIdSignal }: Props) {
               </div>
             ))}
             {filtered.length === 0 ? (
-              <div style={{ padding: '12px', opacity: 0.6, fontSize: 12 }}>No matches</div>
+              <div style={{ padding: '12px', opacity: 0.6, fontSize: 12 }}>Aucune langue trouvée</div>
             ) : null}
           </div>
           {current ? (
             <div className="wa-translate-picker-clear" onClick={() => onSelect(null)}>
-              Clear translation for this chat
+              Ne plus traduire cette discussion
             </div>
           ) : null}
         </div>

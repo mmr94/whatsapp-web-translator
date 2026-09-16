@@ -130,6 +130,21 @@ const CSS = `
   color: #f15c6d;
 }
 
+.wa-translate-inline {
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  font-size: 13.5px;
+  line-height: 1.4;
+  opacity: 0.78;
+  white-space: pre-wrap;
+  user-select: text;
+}
+.wa-translate-inline-spacer {
+  display: inline-block;
+  height: 1px;
+}
+
 .wa-translate-modal-overlay {
   position: fixed;
   inset: 0;
