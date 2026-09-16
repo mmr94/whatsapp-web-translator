@@ -74,6 +74,9 @@ export default defineConfig({
   plugins: [react(), crx({ manifest }), rewireMainWorldEntry()],
   define: {
     __DEV_RELOAD__: JSON.stringify(process.env.WTT_DEV === '1'),
+    // Server preconfigured for a team build: `WTT_SERVER_URL=https://… pnpm package`.
+    // Only the address is baked in; each person still enters their own token.
+    __DEFAULT_SERVER_URL__: JSON.stringify(process.env.WTT_SERVER_URL || 'http://127.0.0.1:8000'),
   },
   resolve: {
     alias: {

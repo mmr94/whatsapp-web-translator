@@ -1,13 +1,14 @@
 {
   "name": "whatsapp-web-translator-private",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b --noEmit && vite build",
     "verify": "pnpm build && node scripts/verify-build.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "package": "pnpm verify && node scripts/package.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

@@ -23,7 +23,7 @@ export interface Config {
 
 export const DEFAULT_CONFIG: Config = {
   nativeLang: 'fr',
-  serverUrl: 'http://127.0.0.1:8000',
+  serverUrl: __DEFAULT_SERVER_URL__,
   apiToken: '',
   translationProtocol: 'simple',
   translationPath: '/v1/translate',

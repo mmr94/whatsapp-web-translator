@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Installer WhatsApp Translator</title>
+<style>
+  :root {
+    --bg: #f7f8fa; --card: #ffffff; --text: #111b21; --muted: #54656f;
+    --line: #e3e7ea; --accent: #00a884; --accent-soft: #e7f6f2; --warn-soft: #fff4e5; --warn: #9a5b00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b141a; --card: #111b21; --text: #e9edef; --muted: #8696a0;
+      --line: #233138; --accent: #00a884; --accent-soft: #10302a; --warn-soft: #33260f; --warn: #f5c16c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 40px 16px 64px; }
+  h1 { font-size: 28px; line-height: 1.2; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 28px; }
+  h2 { font-size: 18px; margin: 36px 0 12px; }
+  ol.steps { list-style: none; counter-reset: step; padding: 0; margin: 0; display: grid; gap: 12px; }
+  ol.steps > li {
+    counter-increment: step; position: relative; background: var(--card);
+    border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px 14px 56px;
+  }
+  ol.steps > li::before {
+    content: counter(step); position: absolute; left: 16px; top: 14px;
+    width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff;
+    display: grid; place-items: center; font-weight: 600; font-size: 13px;
+  }
+  ol.steps strong { font-weight: 600; }
+  code, kbd {
+    font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--accent-soft);
+    border-radius: 5px; padding: 1px 6px; overflow-wrap: anywhere;
+  }
+  .note { background: var(--accent-soft); border-radius: 12px; padding: 12px 16px; margin: 12px 0; }
+  .warn { background: var(--warn-soft); color: var(--text); border-left: 3px solid var(--warn); border-radius: 8px; padding: 12px 16px; margin: 12px 0; }
+  ul { padding-left: 20px; }
+  li + li { margin-top: 4px; }
+  .muted { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>WhatsApp Translator</h1>
+  <p class="sub">Version {{VERSION}} · traduction des messages et transcription des vocaux dans WhatsApp Web, via le serveur de l’équipe.</p>
+
+  <div class="warn">
+    Vous avez besoin d’un <strong>jeton d’accès</strong> personnel. Demandez-le à l’administrateur et ne le partagez pas :
+    il donne accès au serveur de traduction.
+  </div>
+
+  <h2>Installation (5 minutes, une seule fois)</h2>
+  <ol class="steps">
+    <li>
+      <strong>Placez le dossier au bon endroit.</strong> Décompressez l’archive, puis déplacez le dossier
+      <code>whatsapp-web-translator</code> dans un emplacement permanent, par exemple <code>Documents</code>.
+      Chrome lit l’extension depuis ce dossier : ne le supprimez pas et ne le déplacez plus ensuite.
+    </li>
+    <li>
+      <strong>Ouvrez la page des extensions.</strong> Dans Chrome, tapez <code>chrome://extensions</code> dans la barre d’adresse,
+      puis activez <strong>Mode développeur</strong> en haut à droite.
+    </li>
+    <li>
+      <strong>Chargez l’extension.</strong> Cliquez sur <strong>Charger l’extension non empaquetée</strong> et sélectionnez le dossier
+      <code>whatsapp-web-translator</code>. L’extension apparaît dans la liste.
+    </li>
+    <li>
+      <strong>Épinglez-la.</strong> Cliquez sur l’icône puzzle à droite de la barre d’adresse, puis sur l’épingle à côté de
+      <em>WhatsApp Web Translator</em>.
+    </li>
+    <li>
+      <strong>Connectez le serveur.</strong> Clic droit sur l’icône de l’extension → <strong>Options</strong>. {{SERVER_STEP}}
+      Collez votre jeton dans <strong>Jeton d’accès</strong>, puis cliquez sur <strong>Autoriser cette adresse et tester</strong>
+      et acceptez l’autorisation demandée par Chrome. Un message vert confirme la connexion.
+    </li>
+    <li>
+      <strong>Choisissez votre langue.</strong> Dans <strong>Ma langue</strong>, sélectionnez la langue dans laquelle vous voulez lire les messages.
+    </li>
+    <li>
+      <strong>Rechargez WhatsApp Web.</strong> Rechargez <code>web.whatsapp.com</code>, ou fermez et rouvrez l’application
+      WhatsApp si vous l’avez installée depuis Chrome.
+    </li>
+  </ol>
+
+  <h2>Utilisation</h2>
+  <ul>
+    <li><strong>Messages reçus</strong> : la traduction s’affiche automatiquement sous chaque message dans une autre langue.</li>
+    <li><strong>Messages envoyés</strong> : dans une conversation, cliquez sur <strong>🌐 Traduire</strong> près du micro et choisissez la langue
+      du destinataire. Un aperçu s’affiche pendant la saisie et le message part traduit. Ce choix est mémorisé par conversation ;
+      <strong>Ne plus traduire cette discussion</strong> l’annule.</li>
+    <li><strong>Vocaux</strong> : cliquez sur <strong>Transcrire</strong> dans la bulle. Le vocal n’est pas lu et n’est pas marqué comme écouté.</li>
+  </ul>
+
+  <h2>En cas de problème</h2>
+  <p>
+    Cliquez sur l’icône de l’extension : chaque fonction y est vérifiée en direct. Un <strong>!</strong> orange ou rouge sur l’icône
+    signale qu’une fonction ne marche plus, souvent après une mise à jour de WhatsApp.
+  </p>
+  <div class="note">
+    Cliquez sur <strong>Copier le diagnostic</strong> et envoyez le texte à l’administrateur. Il ne contient ni vos messages ni votre jeton.
+  </div>
+
+  <h2>Mettre à jour</h2>
+  <ol class="steps">
+    <li>Remplacez le contenu du dossier <code>whatsapp-web-translator</code> par celui de la nouvelle version, <strong>au même emplacement</strong>
+      pour garder vos réglages.</li>
+    <li>Dans <code>chrome://extensions</code>, cliquez sur la flèche de rechargement de l’extension, puis rechargez WhatsApp Web.</li>
+  </ol>
+
+  <h2>Confidentialité</h2>
+  <p class="muted">
+    Les textes à traduire et les vocaux à transcrire sont envoyés au serveur de l’équipe, et à aucun service externe.
+    Le jeton reste dans votre profil Chrome et n’est jamais transmis à la page WhatsApp. Cette extension n’est pas un produit officiel
+    de WhatsApp.
+  </p>
+</main>
+</body>
+</html>

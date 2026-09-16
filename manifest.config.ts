@@ -1,9 +1,10 @@
 import { defineManifest } from '@crxjs/vite-plugin';
+import pkg from './package.json';
 
 export default defineManifest({
   manifest_version: 3,
   name: 'WhatsApp Web Translator — Private A40',
-  version: '0.2.0',
+  version: pkg.version,
   description: 'Traduction bidirectionnelle et transcription des vocaux via votre serveur privé.',
   icons: {
     16: 'public/icons/16.png',

@@ -116,7 +116,7 @@ export function OptionsApp() {
         </div>
         <label className="opts-toggle"><input type="checkbox" checked={config.autoTranslateVoice} onChange={(event) => setAndSave({ autoTranslateVoice: event.target.checked })} />Traduire automatiquement la transcription dans ma langue</label>
         <label className="opts-toggle"><input type="checkbox" checked={config.autoTranscribeVoice} onChange={(event) => setAndSave({ autoTranscribeVoice: event.target.checked })} />Transcrire automatiquement les nouveaux vocaux reçus</label>
-        <div className="opts-help">Cette option peut marquer le vocal comme écouté sur WhatsApp.</div>
+        <div className="opts-help">Les vocaux sont transcrits sans être lus : ils ne sont pas marqués comme écoutés.</div>
         <label className="opts-toggle"><input type="checkbox" checked={config.diarize} onChange={(event) => setAndSave({ diarize: event.target.checked })} />Séparer les locuteurs si le serveur le permet</label>
       </section>
 
