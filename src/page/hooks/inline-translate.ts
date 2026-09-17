@@ -42,14 +42,26 @@ export function messageText(msg: any): string {
   return typeof text === 'string' ? text.trim() : '';
 }
 
-// The container WhatsApp uses for a message's selectable text. Attribute first, class as
-// a fallback; if neither exists the bubble is skipped rather than guessed.
-export function textContainer(row: HTMLElement): HTMLElement | null {
-  return row.querySelector<HTMLElement>('[data-pre-plain-text]') ?? row.querySelector<HTMLElement>('.copyable-text');
+// The block that holds a message's text. Text messages expose `data-pre-plain-text`;
+// media captions have no such marker, so we fall back to the deepest element containing
+// the text itself (taken from the model), which doesn't depend on markup or classes.
+export function textContainer(row: HTMLElement, text: string): HTMLElement | null {
+  const marked = row.querySelector<HTMLElement>('[data-pre-plain-text]') ?? row.querySelector<HTMLElement>('.copyable-text');
+  if (marked) return marked;
+
+  // Emojis render as <img>, so match a plain-text fragment of the first line.
+  const fragments = text.split('\n')[0].split(/\p{Extended_Pictographic}/u).map((f) => f.trim());
+  const probe = fragments.sort((a, b) => b.length - a.length)[0]?.slice(0, 24) ?? '';
+  if (probe.length < 3) return null;
+  let deepest: Element | null = null;
+  for (const node of row.querySelectorAll('span, div')) {
+    if (!node.classList.contains(BLOCK_CLASS) && node.textContent?.includes(probe)) deepest = node;
+  }
+  return deepest?.closest<HTMLElement>('div') ?? null;
 }
 
-function render(row: HTMLElement, key: string, translated: string) {
-  const container = textContainer(row);
+function render(row: HTMLElement, text: string, key: string, translated: string) {
+  const container = textContainer(row, text);
   if (!container) return;
   let block = container.querySelector<HTMLElement>(`:scope > .${BLOCK_CLASS}`);
   if (!translated) {
@@ -111,7 +123,7 @@ function scan() {
 
     const known = cache.get(key);
     if (known !== undefined) {
-      render(row, key, known);
+      render(row, text, key, known);
       continue;
     }
     if (inflight.has(key)) continue;

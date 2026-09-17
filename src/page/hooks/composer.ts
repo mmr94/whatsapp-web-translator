@@ -73,6 +73,9 @@ function onComposerInput(el: HTMLElement) {
   update({ chatId, targetLang, source: text });
 
   if (!text || !targetLang) {
+    // Cancel pending and in-flight previews, or a late result re-shows the old text.
+    if (debounceTimer) clearTimeout(debounceTimer);
+    lastReqId++;
     update({ translation: '', loading: false, error: null });
     return;
   }
@@ -104,13 +107,20 @@ function onComposerInput(el: HTMLElement) {
 export function installComposerObserver(): void {
   let attached: HTMLElement | null = null;
   const handler = (e: Event) => onComposerInput(e.currentTarget as HTMLElement);
+  // WhatsApp clears the composer programmatically after sending, which fires no `input`
+  // event: watch the content itself so the preview disappears with the text.
+  const contentObserver = new MutationObserver(() => {
+    if (attached) onComposerInput(attached);
+  });
 
   const attach = () => {
     const el = findComposer();
     if (!el || el === attached) return;
     if (attached) attached.removeEventListener('input', handler);
+    contentObserver.disconnect();
     attached = el;
     el.addEventListener('input', handler);
+    contentObserver.observe(el, { childList: true, subtree: true, characterData: true });
     onComposerInput(el);
   };
 

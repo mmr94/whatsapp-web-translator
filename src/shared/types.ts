@@ -13,7 +13,6 @@ export interface Config {
   translationModel: string;
   transcriptionModel: string;
   personality: string;
-  sendBoth: boolean;
   enabled: boolean;
   autoTranscribeVoice: boolean;
   autoTranslateVoice: boolean;
@@ -32,7 +31,6 @@ export const DEFAULT_CONFIG: Config = {
   translationModel: '',
   transcriptionModel: 'large-v3',
   personality: 'Translate naturally and idiomatically. Match the tone of the original message (casual chat stays casual, formal stays formal). Preserve emojis. Do not add explanations.',
-  sendBoth: false,
   enabled: true,
   autoTranscribeVoice: false,
   autoTranslateVoice: true,

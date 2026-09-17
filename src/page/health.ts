@@ -56,7 +56,9 @@ function checkIncoming(): HealthCheck {
     return text && row.innerText.includes(text.slice(0, 12));
   });
   if (!textRows.length) return check('incoming', label, 'idle', 'Aucun message reçu affiché');
-  const placeable = textRows.filter((row) => textContainer(row)).length;
+  const placeable = textRows.filter((row) =>
+    textContainer(row, messageText(index.get(row.getAttribute('data-id') ?? ''))),
+  ).length;
   const detail = `${placeable}/${textRows.length} messages où la traduction peut s’afficher`;
   if (placeable === textRows.length) return check('incoming', label, 'ok', detail);
   return check('incoming', label, placeable ? 'degraded' : 'down', detail);

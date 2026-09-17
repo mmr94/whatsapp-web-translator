@@ -1,5 +1,5 @@
-// Hook the outgoing-text-message send so we can replace the body with a translation
-// (and optionally include the original) before WhatsApp encodes/transmits it.
+// Hook the outgoing-text-message send so we can replace the body with its translation
+// before WhatsApp encodes/transmits it. Only the translation is sent.
 //
 // The exact module/function name has shifted across WhatsApp Web versions. Candidates are
 // grouped by purpose and tried in order: only the first one found in a group is hooked, so
@@ -8,7 +8,6 @@
 import { tryRequire } from '../wa';
 import { translate } from '../bridge';
 import { getChatLang, getConfig } from '../store';
-import { getLanguage } from '@/shared/languages';
 
 interface Candidate {
   module: string;
@@ -96,15 +95,7 @@ async function maybeRewrite(args: any[], c: Candidate): Promise<any[]> {
   if (!result.translated) return args;
   if (result.translated.trim() === body.trim()) return args;
 
-  let finalBody = result.translated;
-  if (config.sendBoth) {
-    const targetName = getLanguage(targetLang)?.code ?? targetLang;
-    const sourceCode = result.source && result.source !== 'unknown' ? result.source : config.nativeLang;
-    const sourceName = getLanguage(sourceCode)?.code ?? sourceCode;
-    finalBody = `${targetName}: ${result.translated}\n-----\n${sourceName}: ${body}`;
-  }
-
   const next = args.slice();
-  next[c.bodyArgIndex] = finalBody;
+  next[c.bodyArgIndex] = result.translated;
   return next;
 }

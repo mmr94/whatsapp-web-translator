@@ -93,7 +93,6 @@ export function OptionsApp() {
           <label htmlFor="personality">Consignes de traduction</label>
           <textarea id="personality" value={config.personality} onChange={(event) => setAndSave({ personality: event.target.value })} />
         </div>
-        <label className="opts-toggle"><input type="checkbox" checked={config.sendBoth} onChange={(event) => setAndSave({ sendBoth: event.target.checked })} />Inclure le message original sous la traduction envoyée</label>
       </section>
 
       <section className="opts-section">
