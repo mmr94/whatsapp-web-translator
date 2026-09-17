@@ -11,3 +11,5 @@ mitm_mcp_traffic.db
 tsconfig.tsbuildinfo
 server-example/models
 release
+server-example/compare/results.json
+server-example/compare/report.md

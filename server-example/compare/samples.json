@@ -1,0 +1,22 @@
+{
+  "_comment": "Phrases de test. Ajoutez vos propres expressions : source et target en codes ISO (fr, en, he…).",
+  "samples": [
+    { "source": "fr", "target": "en", "text": "Normalement c'est corrigé, testez de votre côté et dites-moi si ça fonctionne maintenant" },
+    { "source": "fr", "target": "en", "text": "nous veonons justement de corrigé un elements sur les promos, ça pourrait venir de quel formulaire ?" },
+    { "source": "fr", "target": "en", "text": "T'inquiète, je gère 😉" },
+    { "source": "fr", "target": "en", "text": "On n'est pas sortis de l'auberge avec ce formulaire…" },
+    { "source": "fr", "target": "en", "text": "Ça me fait une belle jambe, mais bon, c'est pas la mer à boire." },
+    { "source": "fr", "target": "en", "text": "Je suis crevé, on se capte demain pour caler ça ?" },
+    { "source": "fr", "target": "en", "text": "Ça coûte un bras, laisse tomber c'est mort 😅" },
+    { "source": "fr", "target": "en", "text": "Il pleut des cordes, je vais arriver avec un quart d'heure de retard." },
+    { "source": "fr", "target": "he", "text": "T'inquiète, je gère 😉" },
+    { "source": "fr", "target": "he", "text": "Normalement c'est corrigé, testez de votre côté et dites-moi si ça fonctionne maintenant" },
+    { "source": "fr", "target": "he", "text": "Je suis crevé, on se capte demain pour caler ça ?" },
+    { "source": "en", "target": "fr", "text": "No worries, I'll keep you posted!" },
+    { "source": "en", "target": "fr", "text": "Let's circle back on this tomorrow, it's not rocket science." },
+    { "source": "en", "target": "fr", "text": "That's a bit of a stretch, but I'll give it a shot." },
+    { "source": "en", "target": "fr", "text": "i have tried to add a discount code but it doesnt seem to be working on our end" },
+    { "source": "he", "target": "fr", "text": "סבבה, אין בעיה, יאללה נדבר מחר" },
+    { "source": "he", "target": "fr", "text": "זה לא ביג דיל, תעדכן אותי כשזה עובד" }
+  ]
+}
